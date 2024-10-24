@@ -11,6 +11,7 @@ import typing as tp
 from collections import OrderedDict
 from pathlib import Path
 
+import random
 import librosa
 import soundfile as sf
 import torch
@@ -111,6 +112,14 @@ def test_one(args, wav_root, store_root, rescale, soundstream):
     # load wav with librosa
     """
     wav, sr = librosa.load(wav_root, sr=args.sr)
+    
+    max_len = 16000*9
+    if wav.shape[0] > max_len:
+        st = random.randint(0, wav.shape[0] - max_len - 1)
+        ed = st + max_len
+        wav = wav[st:ed]
+
+    
     wav = torch.tensor(wav).unsqueeze(0)
 
     # add batch axis
@@ -132,7 +141,7 @@ def remove_codec_weight_norm(model):
     from academicodec.modules.seanet import SEANetResnetBlock
     from torch.nn.utils import remove_weight_norm
 
-    encoder = model.encoder.model
+    encoder = model.encoder.down0
     for key in encoder._modules:
         if isinstance(encoder._modules[key], SEANetResnetBlock):
             remove_weight_norm(encoder._modules[key].shortcut.conv.conv)
@@ -143,7 +152,42 @@ def remove_codec_weight_norm(model):
         elif isinstance(encoder._modules[key], SConv1d):
             remove_weight_norm(encoder._modules[key].conv.conv)
 
-    decoder = model.decoder.model
+    encoder = model.encoder.down2
+    for key in encoder._modules:
+        if isinstance(encoder._modules[key], SEANetResnetBlock):
+            remove_weight_norm(encoder._modules[key].shortcut.conv.conv)
+            block_modules = encoder._modules[key].block._modules
+            for skey in block_modules:
+                if isinstance(block_modules[skey], SConv1d):
+                    remove_weight_norm(block_modules[skey].conv.conv)
+        elif isinstance(encoder._modules[key], SConv1d):
+            remove_weight_norm(encoder._modules[key].conv.conv)
+            
+    encoder = model.encoder.down4
+    for key in encoder._modules:
+        if isinstance(encoder._modules[key], SEANetResnetBlock):
+            remove_weight_norm(encoder._modules[key].shortcut.conv.conv)
+            block_modules = encoder._modules[key].block._modules
+            for skey in block_modules:
+                if isinstance(block_modules[skey], SConv1d):
+                    remove_weight_norm(block_modules[skey].conv.conv)
+        elif isinstance(encoder._modules[key], SConv1d):
+            remove_weight_norm(encoder._modules[key].conv.conv)
+    
+    decoder = model.decoder.up4
+    for key in decoder._modules:
+        if isinstance(decoder._modules[key], SEANetResnetBlock):
+            remove_weight_norm(decoder._modules[key].shortcut.conv.conv)
+            block_modules = decoder._modules[key].block._modules
+            for skey in block_modules:
+                if isinstance(block_modules[skey], SConv1d):
+                    remove_weight_norm(block_modules[skey].conv.conv)
+        elif isinstance(decoder._modules[key], SConvTranspose1d):
+            remove_weight_norm(decoder._modules[key].convtr.convtr)
+        elif isinstance(decoder._modules[key], SConv1d):
+            remove_weight_norm(decoder._modules[key].conv.conv)
+            
+    decoder = model.decoder.up2
     for key in decoder._modules:
         if isinstance(decoder._modules[key], SEANetResnetBlock):
             remove_weight_norm(decoder._modules[key].shortcut.conv.conv)
@@ -156,6 +200,18 @@ def remove_codec_weight_norm(model):
         elif isinstance(decoder._modules[key], SConv1d):
             remove_weight_norm(decoder._modules[key].conv.conv)
 
+    decoder = model.decoder.up0
+    for key in decoder._modules:
+        if isinstance(decoder._modules[key], SEANetResnetBlock):
+            remove_weight_norm(decoder._modules[key].shortcut.conv.conv)
+            block_modules = decoder._modules[key].block._modules
+            for skey in block_modules:
+                if isinstance(block_modules[skey], SConv1d):
+                    remove_weight_norm(block_modules[skey].conv.conv)
+        elif isinstance(decoder._modules[key], SConvTranspose1d):
+            remove_weight_norm(decoder._modules[key].convtr.convtr)
+        elif isinstance(decoder._modules[key], SConv1d):
+            remove_weight_norm(decoder._modules[key].conv.conv)
 
 def test_batch():
     args = get_parser().parse_args()

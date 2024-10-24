@@ -95,7 +95,9 @@ class SoundStream(nn.Module):
 
     def decode(self, codes):
         quantized = self.quantizer.decode(codes)
-        # o = self.decoder(quantized)
+        
+        o = self.decoder.seup4(quantized)
+        
         o = self.tcm.decoder5(o)# o = self.de5(o)
         # print("tcm成功")
         # print(f"tcm5:{o.shape}")

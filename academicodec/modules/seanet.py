@@ -578,9 +578,9 @@ class SEANetDecoder1(nn.Module):
         self.up0 = nn.Sequential(*up0)
          
 
-    def forward(self, z):
-        y = self.model(z)
-        return y
+    # def forward(self, z):
+    #     y = self.model(z)
+    #     return y
     
     def seup4(self, x):
         return self.up4(x)
