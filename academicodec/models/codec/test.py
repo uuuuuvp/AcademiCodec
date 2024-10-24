@@ -21,6 +21,7 @@ from academicodec.models.codec.net3 import SoundStream
 def save_audio(wav: torch.Tensor,
                path: tp.Union[Path, str],
                sample_rate: int,
+               length: int,
                rescale: bool=False):
     limit = 0.99
     mx = wav.abs().max()
@@ -29,6 +30,7 @@ def save_audio(wav: torch.Tensor,
     else:
         wav = wav.clamp(-limit, limit)
     wav = wav.squeeze().cpu().numpy()
+    wav=wav[0:length]
     sf.write(path, wav, sample_rate)
 
 
@@ -113,15 +115,25 @@ def test_one(args, wav_root, store_root, rescale, soundstream):
     """
     wav, sr = librosa.load(wav_root, sr=args.sr)
     
-    max_len = 16000*9
-    if wav.shape[0] > max_len:
-        st = random.randint(0, wav.shape[0] - max_len - 1)
-        ed = st + max_len
-        wav = wav[st:ed]
-
+    # 简单版本
+    # max_len = 16000*9
+    # if wav.shape[0] > max_len:
+    #     st = random.randint(0, wav.shape[0] - max_len - 1)
+    #     ed = st + max_len
+    #     wav = wav[st:ed]
+    # wav = wav[0:max_len]
+    target_multiple = 16000
     
-    wav = torch.tensor(wav).unsqueeze(0)
+    delta = len(wav) % target_multiple
+    if delta != 0:
+        silence = target_multiple - delta
+    else:
+        silence = 0
+    wav_length = len(wav)
+    wav0 = torch.tensor(wav).unsqueeze(0)
 
+    wav = torch.nn.functional.pad(wav0, (0, silence), mode='constant', value=0)
+    
     # add batch axis
     wav = wav.unsqueeze(1).cuda()
 
@@ -131,8 +143,9 @@ def test_one(args, wav_root, store_root, rescale, soundstream):
     out = soundstream.decode(compressed)
     out = out.detach().cpu().squeeze(0)
     check_clipping(out, rescale)
-    save_audio(wav=out, path=store_root, sample_rate=args.sr, rescale=rescale)
+    save_audio(wav=out, path=store_root, sample_rate=args.sr, length=wav_length, rescale=rescale)
     print('finish decompressing')
+    return 
 
 
 def remove_codec_weight_norm(model):
