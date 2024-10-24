@@ -11,12 +11,14 @@ sr8
 sr16
 sr24
 test-clean-120-2400-16k-320d
+output/*
 
-
+./academicodec/modules/Supercodec
 
 
 DNS-Challenge
-visqol
+visqol/*
 
+/util/*.wav
 __pycache__
 .vscode
