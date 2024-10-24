@@ -11,6 +11,7 @@ import numpy as np
 import torch
 import yaml
 from torch import distributed as dist
+from torch.utils.tensorboard import SummaryWriter
 from torch.nn.utils import weight_norm
 matplotlib.use("Agg")
 import matplotlib.pylab as plt
@@ -113,9 +114,9 @@ class Logger(object):
                                     'a')  # 'w')
             if args.tensorboard:
                 self.log_info('using tensorboard')
-                self.tb_writer = torch.utils.tensorboard.SummaryWriter(
-                    log_dir=log_dir
-                )  # tensorboard.SummaryWriter(log_dir=log_dir)
+                self.tb_writer = SummaryWriter(log_dir=log_dir)
+                # self.tb_writer = torch.utils.tensorboard.SummaryWriter(log_dir=log_dir)
+                # tensorboard.SummaryWriter(log_dir=log_dir)
             else:
                 self.tb_writer = None
 

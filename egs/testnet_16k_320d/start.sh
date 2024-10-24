@@ -10,9 +10,9 @@ train_data_dir=/data0/youyubo/y/data/train-clean-100-16k/
 valid_data_dir=/data0/youyubo/y/data/dev-clean-16k/
 
 # export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
-export CUDA_VISIBLE_DEVICES=2,3
-python3 -m torch.distributed.launch --nproc_per_node 2 ${BIN_DIR}/main_launch.py \
-        --BATCH_SIZE 5 \
+export CUDA_VISIBLE_DEVICES=3,4,5
+python3 -m torch.distributed.launch --nproc_per_node 3 ${BIN_DIR}/main_launch.py \
+        --BATCH_SIZE 10 \
         --N_EPOCHS 120 \
         --save_dir ${log_root} \
         --PATH ${ckpt_root} \

@@ -195,7 +195,7 @@ def main_worker(local_rank, args):
     stft_disc.to(args.device)
     msd.to(args.device)
     mpd.to(args.device)
-    find_unused_parameters = True
+    find_unused_parameters = False
     if args.distributed:
         soundstream = DDP(
             soundstream,

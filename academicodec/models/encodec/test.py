@@ -100,6 +100,7 @@ def check_clipping(wav, rescale):
 
 
 def test_one(args, wav_root, store_root, rescale, soundstream):
+    """
     # torchaudio.load 的采样率为原始音频的采样率，不会自动下采样
     # wav, sr = torchaudio.load(wav_root)
     # # 取单声道, output shape [1, T]
@@ -108,6 +109,7 @@ def test_one(args, wav_root, store_root, rescale, soundstream):
     # wav = torchaudio.transforms.Resample(orig_freq=sr, new_freq=args.sr)(wav)
 
     # load wav with librosa
+    """
     wav, sr = librosa.load(wav_root, sr=args.sr)
     wav = torch.tensor(wav).unsqueeze(0)
 

@@ -151,12 +151,12 @@ class SEANetEncoder(nn.Module):
         # Downsample to raw audio scale
         for i, ratio in enumerate(self.ratios):
             # Add residual layers
-            for j in range(n_residual_layers):
+            for j in range(n_residual_layers):  # j = 0
                 model += [
                     SEANetResnetBlock(
                         mult * n_filters,
                         kernel_sizes=[residual_kernel_size, 1],
-                        dilations=[dilation_base**j, 1],
+                        dilations=[dilation_base**j, 1],    # 2**0 = 1
                         norm=norm,
                         norm_params=norm_params,
                         activation=activation,
@@ -197,10 +197,405 @@ class SEANetEncoder(nn.Module):
         ]
 
         self.model = nn.Sequential(*model)
+        
 
     def forward(self, x):
         return self.model(x)
+    
+class SEANetEncoder1(nn.Module):
+    def __init__(self,
+                 channels: int=1,
+                 dimension: int=128,
+                 n_filters: int=32,
+                 n_residual_layers: int=1,
+                #  ratios: tp.List[int]=[8, 5, 4, 2],
+                 ratios: tp.List[int]=[2, 4, 5, 8],
+                 activation: str='ELU',
+                 activation_params: dict={'alpha': 1.0},
+                 norm: str='weight_norm',
+                 norm_params: tp.Dict[str, tp.Any]={},
+                 kernel_size: int=7,
+                 last_kernel_size: int=7,
+                 residual_kernel_size: int=3,
+                 dilation_base: int=2,
+                 causal: bool=False,
+                 pad_mode: str='reflect',
+                 true_skip: bool=False,
+                 compress: int=2,
+                 lstm: int=2):
+        super().__init__()
+        self.channels = channels
+        self.dimension = dimension
+        self.n_filters = n_filters
+        self.ratios = list(reversed(ratios))
+        
+        self.n_residual_layers = n_residual_layers
+        self.hop_length = np.prod(self.ratios)  # 计算乘积
+        # del ratios
 
+        act = getattr(nn, activation)
+        mult = 1
+        mults = [1, 2, 4, 8, 16]
+        # 首层卷积
+        down0: tp.List[nn.Module] = [SConv1d(channels, mults[0] * n_filters, kernel_size, norm=norm, norm_kwargs=norm_params, causal=causal, pad_mode=pad_mode)]
+        self.down0 = nn.Sequential(*down0)
+        
+        down1: tp.List[nn.Module] = [SConv1d(channels, mults[0] * n_filters, kernel_size, norm=norm, norm_kwargs=norm_params, causal=causal, pad_mode=pad_mode)]
+        # Downsample to raw audio scale
+        # Add residual layers
+        down1 += [SEANetResnetBlock(
+                mults[0] * n_filters,
+                kernel_sizes=[residual_kernel_size, 1],
+                dilations=[1, 1],
+                norm=norm,
+                norm_params=norm_params,
+                activation=activation,
+                activation_params=activation_params,
+                causal=causal,
+                pad_mode=pad_mode,
+                compress=compress,
+                true_skip=true_skip)]
+        # Add downsampling layers
+        down1 += [
+            act(**activation_params),
+            SConv1d(
+                mults[0] * n_filters,
+                mults[0] * n_filters * 2,
+                kernel_size=self.ratios[0] * 2,
+                stride=self.ratios[0],
+                norm=norm,
+                norm_kwargs=norm_params,
+                causal=causal,
+                pad_mode=pad_mode),
+        ]
+        self.down1 = nn.Sequential(*down1)
+        
+        down2: tp.List[nn.Module] = [
+            SEANetResnetBlock(
+                mults[1] * n_filters,
+                kernel_sizes=[residual_kernel_size, 1],
+                dilations=[1, 1],
+                norm=norm,
+                norm_params=norm_params,
+                activation=activation,
+                activation_params=activation_params,
+                causal=causal,
+                pad_mode=pad_mode,
+                compress=compress,
+                true_skip=true_skip)]
+        # Add downsampling layers
+        down2 += [
+            act(**activation_params),
+            SConv1d(
+                mults[1] * n_filters,
+                mults[1] * n_filters * 2,
+                kernel_size=self.ratios[1] * 2,
+                stride=self.ratios[1],
+                norm=norm,
+                norm_kwargs=norm_params,
+                causal=causal,
+                pad_mode=pad_mode),
+        ]
+        self.down2 = nn.Sequential(*down2)
+        
+        down3: tp.List[nn.Module] = [
+            SEANetResnetBlock(
+                mults[2] * n_filters,
+                kernel_sizes=[residual_kernel_size, 1],
+                dilations=[1, 1],
+                norm=norm,
+                norm_params=norm_params,
+                activation=activation,
+                activation_params=activation_params,
+                causal=causal,
+                pad_mode=pad_mode,
+                compress=compress,
+                true_skip=true_skip)]
+        # Add downsampling layers
+        down3 += [
+            act(**activation_params),
+            SConv1d(
+                mults[2] * n_filters,
+                mults[2] * n_filters * 2,
+                kernel_size=self.ratios[2] * 2,
+                stride=self.ratios[2],
+                norm=norm,
+                norm_kwargs=norm_params,
+                causal=causal,
+                pad_mode=pad_mode),
+        ]
+        self.down3 = nn.Sequential(*down3)
+        
+        down4: tp.List[nn.Module] = [
+            SEANetResnetBlock(
+                mults[3] * n_filters,
+                kernel_sizes=[residual_kernel_size, 1],
+                dilations=[1, 1],
+                norm=norm,
+                norm_params=norm_params,
+                activation=activation,
+                activation_params=activation_params,
+                causal=causal,
+                pad_mode=pad_mode,
+                compress=compress,
+                true_skip=true_skip)]
+        # Add downsampling layers
+        down4 += [
+            act(**activation_params),
+            SConv1d(
+                mults[3] * n_filters,
+                mults[3] * n_filters * 2,
+                kernel_size=self.ratios[3] * 2,
+                stride=self.ratios[3],
+                norm=norm,
+                norm_kwargs=norm_params,
+                causal=causal,
+                pad_mode=pad_mode),
+        ]
+        if lstm:
+            down4 += [SLSTM(mults[4] * n_filters, num_layers=lstm)]
+        
+        down4 += [
+            act(**activation_params), SConv1d(
+                mults[4] * n_filters,
+                dimension,
+                last_kernel_size,
+                norm=norm,
+                norm_kwargs=norm_params,
+                causal=causal,
+                pad_mode=pad_mode)
+        ]
+        
+        self.down4 = nn.Sequential(*down4)
+
+
+    def sedown0(self, x):
+        return self.down0(x)
+    
+    def sedown1(self, x):
+        return self.down1(x)
+    
+    def sedown2(self, x):
+        return self.down2(x)
+    
+    def sedown3(self, x):
+        return self.down3(x)
+    
+    def sedown4(self, x):
+        return self.down4(x)
+
+class SEANetDecoder1(nn.Module):
+    def __init__(self,
+                 channels: int=1,
+                 dimension: int=128,
+                 n_filters: int=32,
+                 n_residual_layers: int=1,
+                 ratios: tp.List[int]=[8, 5, 4, 2],
+                 activation: str='ELU',
+                 activation_params: dict={'alpha': 1.0},
+                 final_activation: tp.Optional[str]=None,
+                 final_activation_params: tp.Optional[dict]=None,
+                 norm: str='weight_norm',
+                 norm_params: tp.Dict[str, tp.Any]={},
+                 kernel_size: int=7,
+                 last_kernel_size: int=7,
+                 residual_kernel_size: int=3,
+                 dilation_base: int=2,
+                 causal: bool=False,
+                 pad_mode: str='reflect',
+                 true_skip: bool=False,
+                 compress: int=2,
+                 lstm: int=2,
+                 trim_right_ratio: float=1.0):
+        super().__init__()
+        self.dimension = dimension
+        self.channels = channels
+        self.n_filters = n_filters
+        # self.ratios = ratios
+        self.ratios = list(reversed(ratios))
+        # del ratios
+        self.n_residual_layers = n_residual_layers
+        self.hop_length = np.prod(self.ratios)
+
+        act = getattr(nn, activation)
+        mult = int(2**len(self.ratios)) # 16
+        mults = [1, 2, 4, 8, 16]
+        
+        up4: tp.List[nn.Module] = [
+            SConv1d(
+                dimension,
+                mults[4] * n_filters,
+                kernel_size,
+                norm=norm,
+                norm_kwargs=norm_params,
+                causal=causal,
+                pad_mode=pad_mode)
+        ]
+
+        if lstm:
+            up4 += [SLSTM(mults[4] * n_filters, num_layers=lstm)]
+
+        # Upsample to raw audio scale
+
+        # Add upsampling layers
+        up4 += [
+            act(**activation_params),
+            SConvTranspose1d(
+                mults[4] * n_filters,
+                mults[4] * n_filters // 2,
+                kernel_size=self.ratios[3] * 2,
+                stride=self.ratios[3],
+                norm=norm,
+                norm_kwargs=norm_params,
+                causal=causal,
+                trim_right_ratio=trim_right_ratio),
+        ]
+        # Add residual layers
+
+        up4 += [
+            SEANetResnetBlock(
+                mults[4] * n_filters // 2,
+                kernel_sizes=[residual_kernel_size, 1],
+                dilations=[1, 1],
+                activation=activation,
+                activation_params=activation_params,
+                norm=norm,
+                norm_params=norm_params,
+                causal=causal,
+                pad_mode=pad_mode,
+                compress=compress,
+                true_skip=true_skip)
+        ]
+        self.up4 = nn.Sequential(*up4)
+        
+        up3 : tp.List[nn.Module] =  [
+            act(**activation_params),
+            SConvTranspose1d(
+                mults[3] * n_filters,
+                mults[3] * n_filters // 2,
+                kernel_size=self.ratios[2] * 2,
+                stride=self.ratios[2],
+                norm=norm,
+                norm_kwargs=norm_params,
+                causal=causal,
+                trim_right_ratio=trim_right_ratio),
+        ]
+        # Add residual layers
+
+        up3 += [
+            SEANetResnetBlock(
+                mults[3] * n_filters // 2,
+                kernel_sizes=[residual_kernel_size, 1],
+                dilations=[1, 1],
+                activation=activation,
+                activation_params=activation_params,
+                norm=norm,
+                norm_params=norm_params,
+                causal=causal,
+                pad_mode=pad_mode,
+                compress=compress,
+                true_skip=true_skip)
+        ]
+        self.up3 = nn.Sequential(*up3)
+        
+        up2 : tp.List[nn.Module] =  [
+            act(**activation_params),
+            SConvTranspose1d(
+                mults[2] * n_filters,
+                mults[2] * n_filters // 2,
+                kernel_size=self.ratios[1] * 2,
+                stride=self.ratios[1],
+                norm=norm,
+                norm_kwargs=norm_params,
+                causal=causal,
+                trim_right_ratio=trim_right_ratio),
+        ]
+        # Add residual layers
+
+        up2 += [
+            SEANetResnetBlock(
+                mults[2] * n_filters // 2,
+                kernel_sizes=[residual_kernel_size, 1],
+                dilations=[1, 1],
+                activation=activation,
+                activation_params=activation_params,
+                norm=norm,
+                norm_params=norm_params,
+                causal=causal,
+                pad_mode=pad_mode,
+                compress=compress,
+                true_skip=true_skip)
+        ]
+        self.up2 = nn.Sequential(*up2)
+        
+        up1 : tp.List[nn.Module] =  [
+            act(**activation_params),
+            SConvTranspose1d(
+                mults[1] * n_filters,
+                mults[1] * n_filters // 2,
+                kernel_size=self.ratios[0] * 2,
+                stride=self.ratios[0],
+                norm=norm,
+                norm_kwargs=norm_params,
+                causal=causal,
+                trim_right_ratio=trim_right_ratio),
+        ]
+        # Add residual layers
+
+        up1 += [
+            SEANetResnetBlock(
+                mults[1] * n_filters // 2,
+                kernel_sizes=[residual_kernel_size, 1],
+                dilations=[1, 1],
+                activation=activation,
+                activation_params=activation_params,
+                norm=norm,
+                norm_params=norm_params,
+                causal=causal,
+                pad_mode=pad_mode,
+                compress=compress,
+                true_skip=true_skip)
+        ]
+        self.up1 = nn.Sequential(*up1)
+        
+
+        # Add final layers
+        up0 : tp.List[nn.Module] =  [
+            act(**activation_params), SConv1d(
+                n_filters,
+                channels,
+                last_kernel_size,
+                norm=norm,
+                norm_kwargs=norm_params,
+                causal=causal,
+                pad_mode=pad_mode)
+        ]
+        # Add optional final activation to decoder (eg. tanh)
+        if final_activation is not None:
+            final_act = getattr(nn, final_activation)
+            final_activation_params = final_activation_params or {}
+            up0 += [final_act(**final_activation_params)]
+        self.up0 = nn.Sequential(*up0)
+         
+
+    def forward(self, z):
+        y = self.model(z)
+        return y
+    
+    def seup4(self, x):
+        return self.up4(x)
+    
+    def seup3(self, x):
+        return self.up3(x)
+    
+    def seup2(self, x):
+        return self.up2(x)
+    
+    def seup1(self, x):
+        return self.up1(x)
+    
+    def seup0(self, x):
+        return self.up0(x)
 
 class SEANetDecoder(nn.Module):
     """SEANet decoder.
