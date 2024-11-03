@@ -12,6 +12,7 @@ sr16
 sr24
 test-clean-120-2400-16k-320d
 output/*
+test-5339
 
 ./academicodec/modules/Supercodec
 

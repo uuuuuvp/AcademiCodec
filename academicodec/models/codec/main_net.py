@@ -73,6 +73,8 @@ class tcnet(nn.Module):
         print(x-o)
         return o, commit_loss, None
 
+    # main_net 只是用了forward，但是没有分别写出 encode decode 
+    # 主要还是借助原本的框架 net3 , 尤其是 test 在 net3 里实现
     def encode(self, x, target_bw=None, st=None):
         e = self.encoder(x)
         if target_bw is None:

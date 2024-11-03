@@ -9,7 +9,7 @@ python3 /data0/youyubo/y/AcademiCodec/academicodec/models/codec/test.py \
        --sr=16000 \
        --ratios 8 5 4 2 \
        --target_bandwidths 1.2 2.4 \
-       --target_bw=2.4 \
+       --target_bw=1.2 \
        -r
 
 
