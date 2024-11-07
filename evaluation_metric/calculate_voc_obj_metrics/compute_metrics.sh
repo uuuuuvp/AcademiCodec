@@ -6,7 +6,7 @@
 # pip install pysptk
 # pip install -U numpy
 stage=1
-stop_stage=2
+stop_stage=3
 
 #ref_dir=$1
 #gen_dir=$2
@@ -14,8 +14,8 @@ stop_stage=2
 # ref_dir='your test folder'
 # gen_dir='the genereated samples'
 
-ref_dir='/data0/youyubo/y/AcademiCodec/sr16'
-gen_dir='/data0/youyubo/y/AcademiCodec/output'
+ref_dir='/data0/youyubo/y/data/test-clean-16k'
+gen_dir='/data0/youyubo/y/result/test-clean-1200-41-tcm'
 
 echo ${ref_dir}
 echo ${gen_dir}

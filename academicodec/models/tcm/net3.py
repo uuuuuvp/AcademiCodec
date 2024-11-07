@@ -3,10 +3,12 @@ import random
 
 import numpy as np
 import torch.nn as nn
-from academicodec.modules.seanet import SEANetDecoder1
-from academicodec.modules.seanet import SEANetEncoder1
+from academicodec.modules.seanet0 import SEANetDecoder1
+from academicodec.modules.seanet0 import SEANetEncoder1
+
 from academicodec.quantization import ResidualVectorQuantizer
-from academicodec.modules.stcm import stcm
+
+from academicodec.modules.stcm0 import stcm
 
 # codec model
 class SoundStream(nn.Module):
@@ -31,7 +33,7 @@ class SoundStream(nn.Module):
             dimension=D, n_q=n_q, bins=bins)
         self.decoder = SEANetDecoder1(
             n_filters=n_filters, dimension=D, ratios=ratios)
-        self.stcm = stcm()
+        self.tcm = stcm()
 
 
 
@@ -42,11 +44,11 @@ class SoundStream(nn.Module):
         # e = self.encoder(x)
         e = self.encoder.sedown0(x)# e = self.en0(x)
         # print(f"首层大卷积: {e.shape}")
-        e = self.stcm.encoder2(e)# e = self.en2(e)
+        e = self.tcm.encoder2(e)# e = self.en2(e)
         # print(f"tcm2维卷积: {e.shape}")
         e = self.encoder.sedown2(e)# e = self.en4(e)
         # print(f"seanet卷积: {e.shape}")
-        e = self.stcm.encoder5(e)# e = self.en5(e)
+        e = self.tcm.encoder5(e)# e = self.en5(e)
         # print(f"tcm5大卷积: {e.shape}")
         e = self.encoder.sedown4(e)# e = self.en8(e)
         # print(f"seanet卷积: {e.shape}") 
@@ -59,12 +61,12 @@ class SoundStream(nn.Module):
         # o = self.decoder(quantized)
         o = self.decoder.seup4(quantized)# o = self.de8(quantized)
         # print(f"反卷积8步{o.shape}")
-        o = self.stcm.decoder5(o)# o = self.de5(o)
+        o = self.tcm.decoder5(o)# o = self.de5(o)
         # print("tcm成功")
         # print(f"tcm5:{o.shape}")
         o = self.decoder.seup2(o)# o = self.de4(o)
         # print(f"seanet4:{o.shape}")
-        o = self.stcm.decoder2(o)# o = self.de2(o)
+        o = self.tcm.decoder2(o)# o = self.de2(o)
         # print(f"tcm2:{o.shape}")
         o = self.decoder.seup0(o)# o = self.de0(o)
         # print(f"seanet0:{o.shape}")
@@ -75,11 +77,11 @@ class SoundStream(nn.Module):
         # e = self.encoder(x)
         e = self.encoder.sedown0(x)# e = self.en0(x)
         # print(f"首层大卷积: {e.shape}")
-        e = self.stcm.encoder2(e)# e = self.en2(e)
+        e = self.tcm.encoder2(e)# e = self.en2(e)
         # print(f"tcm2维卷积: {e.shape}")
         e = self.encoder.sedown2(e)# e = self.en4(e)
         # print(f"seanet卷积: {e.shape}")
-        e = self.stcm.encoder5(e)# e = self.en5(e)
+        e = self.tcm.encoder5(e)# e = self.en5(e)
         # print(f"tcm5大卷积: {e.shape}")
         e = self.encoder.sedown4(e)# e = self.en8(e)
         if target_bw is None:
@@ -96,12 +98,12 @@ class SoundStream(nn.Module):
         
         o = self.decoder.seup4(quantized)
         
-        o = self.stcm.decoder5(o)# o = self.de5(o)
+        o = self.tcm.decoder5(o)# o = self.de5(o)
         # print("tcm成功")
         # print(f"tcm5:{o.shape}")
         o = self.decoder.seup2(o)# o = self.de4(o)
         # print(f"seanet4:{o.shape}")
-        o = self.stcm.decoder2(o)# o = self.de2(o)
+        o = self.tcm.decoder2(o)# o = self.de2(o)
         # print(f"tcm2:{o.shape}")
         o = self.decoder.seup0(o)# o = self.de0(o)
         return o

@@ -3,10 +3,12 @@ import random
 
 import numpy as np
 import torch.nn as nn
-from academicodec.modules.seanet import SEANetDecoder1
-from academicodec.modules.seanet import SEANetEncoder1
+from academicodec.modules.seanet0 import SEANetDecoder1
+from academicodec.modules.seanet0 import SEANetEncoder1
+
 from academicodec.quantization import ResidualVectorQuantizer
-from academicodec.modules.stcm import stcm
+
+from academicodec.modules.stcm0 import stcm
 
 # Generator
 class tcnet(nn.Module):
@@ -68,7 +70,7 @@ class tcnet(nn.Module):
         # print(f"tcm2:{o.shape}")
         o = self.decoder.seup0(o)# o = self.de0(o)
         # print(f"seanet0:{o.shape}")
-        # print(x-o)
+        print(x-o)
         return o, commit_loss, None
 
     # main_net 只是用了forward，但是没有分别写出 encode decode 

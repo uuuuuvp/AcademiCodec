@@ -3,8 +3,6 @@
 #
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
-
-
 """Command-line for audio compression."""
 import argparse
 import os
@@ -17,7 +15,7 @@ import random
 import librosa
 import soundfile as sf
 import torch
-from academicodec.models.codec.net3 import SoundStream
+from academicodec.models.tcm.net3 import SoundStream
 
 
 def save_audio(wav: torch.Tensor,
@@ -152,22 +150,11 @@ def test_one(args, wav_root, store_root, rescale, soundstream):
 
 def remove_codec_weight_norm(model):
     from academicodec.modules import SConv1d
-    from academicodec.modules.seanet import SConvTranspose1d
-    from academicodec.modules.seanet import SEANetResnetBlock
+    from academicodec.modules.seanet0 import SConvTranspose1d
+    from academicodec.modules.seanet0 import SEANetResnetBlock
     from torch.nn.utils import remove_weight_norm
 
     encoder = model.encoder.down0
-    for key in encoder._modules:
-        if isinstance(encoder._modules[key], SEANetResnetBlock):
-            remove_weight_norm(encoder._modules[key].shortcut.conv.conv)
-            block_modules = encoder._modules[key].block._modules
-            for skey in block_modules:
-                if isinstance(block_modules[skey], SConv1d):
-                    remove_weight_norm(block_modules[skey].conv.conv)
-        elif isinstance(encoder._modules[key], SConv1d):
-            remove_weight_norm(encoder._modules[key].conv.conv)
-
-    encoder = model.stcm.encoder2
     for key in encoder._modules:
         if isinstance(encoder._modules[key], SEANetResnetBlock):
             remove_weight_norm(encoder._modules[key].shortcut.conv.conv)
@@ -188,18 +175,7 @@ def remove_codec_weight_norm(model):
                     remove_weight_norm(block_modules[skey].conv.conv)
         elif isinstance(encoder._modules[key], SConv1d):
             remove_weight_norm(encoder._modules[key].conv.conv)
-
-    encoder = model.stcm.encoder5
-    for key in encoder._modules:
-        if isinstance(encoder._modules[key], SEANetResnetBlock):
-            remove_weight_norm(encoder._modules[key].shortcut.conv.conv)
-            block_modules = encoder._modules[key].block._modules
-            for skey in block_modules:
-                if isinstance(block_modules[skey], SConv1d):
-                    remove_weight_norm(block_modules[skey].conv.conv)
-        elif isinstance(encoder._modules[key], SConv1d):
-            remove_weight_norm(encoder._modules[key].conv.conv)
-
+            
     encoder = model.encoder.down4
     for key in encoder._modules:
         if isinstance(encoder._modules[key], SEANetResnetBlock):
@@ -210,7 +186,7 @@ def remove_codec_weight_norm(model):
                     remove_weight_norm(block_modules[skey].conv.conv)
         elif isinstance(encoder._modules[key], SConv1d):
             remove_weight_norm(encoder._modules[key].conv.conv)
-
+    
     decoder = model.decoder.up4
     for key in decoder._modules:
         if isinstance(decoder._modules[key], SEANetResnetBlock):
@@ -223,18 +199,7 @@ def remove_codec_weight_norm(model):
             remove_weight_norm(decoder._modules[key].convtr.convtr)
         elif isinstance(decoder._modules[key], SConv1d):
             remove_weight_norm(decoder._modules[key].conv.conv)
-
-    encoder = model.stcm.decoder5
-    for key in encoder._modules:
-        if isinstance(encoder._modules[key], SEANetResnetBlock):
-            remove_weight_norm(encoder._modules[key].shortcut.conv.conv)
-            block_modules = encoder._modules[key].block._modules
-            for skey in block_modules:
-                if isinstance(block_modules[skey], SConv1d):
-                    remove_weight_norm(block_modules[skey].conv.conv)
-        elif isinstance(encoder._modules[key], SConv1d):
-            remove_weight_norm(encoder._modules[key].conv.conv)
-
+            
     decoder = model.decoder.up2
     for key in decoder._modules:
         if isinstance(decoder._modules[key], SEANetResnetBlock):
@@ -247,17 +212,6 @@ def remove_codec_weight_norm(model):
             remove_weight_norm(decoder._modules[key].convtr.convtr)
         elif isinstance(decoder._modules[key], SConv1d):
             remove_weight_norm(decoder._modules[key].conv.conv)
-
-    encoder = model.stcm.decoder2
-    for key in encoder._modules:
-        if isinstance(encoder._modules[key], SEANetResnetBlock):
-            remove_weight_norm(encoder._modules[key].shortcut.conv.conv)
-            block_modules = encoder._modules[key].block._modules
-            for skey in block_modules:
-                if isinstance(block_modules[skey], SConv1d):
-                    remove_weight_norm(block_modules[skey].conv.conv)
-        elif isinstance(encoder._modules[key], SConv1d):
-            remove_weight_norm(encoder._modules[key].conv.conv)
 
     decoder = model.decoder.up0
     for key in decoder._modules:

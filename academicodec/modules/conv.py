@@ -261,8 +261,11 @@ class SConv1d(nn.Module):
             x = pad1d(x, (padding_total, extra_padding), mode=self.pad_mode)
         else:
             # Asymmetric padding required for odd strides
+            # print("padding total: ",end=' ');print(padding_total)
             padding_right = padding_total // 2
+            # print("padding right: ",end=' ');print(padding_right)
             padding_left = padding_total - padding_right
+            # print("padding  left: ",end=' ');print(padding_left)
             x = pad1d(
                 x, (padding_left, padding_right + extra_padding),
                 mode=self.pad_mode)

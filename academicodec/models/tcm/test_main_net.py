@@ -1,5 +1,5 @@
-from academicodec.models.encodec.main_net import tcnet
-from academicodec.models.encodec.net3 import SoundStream
+from academicodec.models.tcm.main_net import tcnet
+from academicodec.models.tcm.net3 import SoundStream
 import torch
 import librosa
 import random
@@ -43,14 +43,14 @@ wav = wav.unsqueeze(1)
 # print(num_windows)
 # print(wav.shape)
 """
-# test_net = tcnet(n_filters=32, D=128)
-test_net = SoundStream(n_filters=32, D=128)
-test_net.eval()
-test_net(wav)
 
-# sestream = SoundStream(n_filters=32, D=128)
-# sestream.eval()
-# sestream(wav)
+# test_net = tcnet(n_filters=32, D=128)
+# test_net.eval()
+# test_net(wav)
+
+sestream = SoundStream(n_filters=32, D=128)
+sestream.eval()
+sestream(wav)
 
 
 

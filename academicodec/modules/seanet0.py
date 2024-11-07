@@ -735,7 +735,7 @@ def test():
     decoder = SEANetDecoder()
     x = torch.randn(1, 1, 24000)
     z = encoder(x)
-    # print('z ', z.shape)
+    print('z ', z.shape)
     assert 1 == 2
     assert list(z.shape) == [1, 128, 75], z.shape
     y = decoder(z)

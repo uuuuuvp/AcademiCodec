@@ -1,4 +1,6 @@
 import torch.nn as nn
+import torch.nn.functional as F
+from torch import Tensor
 import torch
 from timm.models.layers import trunc_normal_, DropPath
 from einops import rearrange 
@@ -8,65 +10,174 @@ import torch.nn as nn
 import numpy as np
 import typing as tp
 from typing import Dict, Any
-import academicodec.modules.conv as nm
-from academicodec.modules.seanet import SEANetResnetBlock
+from academicodec.modules import SConv1d
+from academicodec.modules import SConvTranspose1d
 
 
-class ResidualBlockWithStride1D(nn.Module):
-    def __init__(self, in_ch: int, out_ch: int, stride: int, kernel_size: int, norm: str = 'weight_norm', pad_mode: str = 'reflect'):
-        super(ResidualBlockWithStride1D, self).__init__()
-        self.stride=stride
-        self.in_channels=in_ch
-        self.out_channels=out_ch
-        self.conv1 = nm.SConv1d(in_ch, out_ch, kernel_size=kernel_size, stride=stride, norm=norm, pad_mode=pad_mode)
-        self.act = nn.ELU(inplace=True)
-        self.conv2 = nm.SConv1d(out_ch, out_ch, kernel_size=1, norm=norm, pad_mode=pad_mode)
-        self.norm1 = nm.get_norm_module(self.conv1, causal=False, norm=norm)
-        self.norm2 = nm.get_norm_module(self.conv2, causal=False, norm=norm)
-        if self.in_channels != self.out_channels or self.stride != 1:
-            self.skip = nm.SConv1d(in_ch, out_ch, stride=stride, kernel_size=5)
+def conv1d(in_ch: int, out_ch: int, kernel_size: int, stride: int = 1, causal: bool = False, norm: str = 'none', norm_kwargs: Dict[str, Any] = {}, pad_mode: str = 'reflect'):
+    return SConv1d(
+        in_channels=in_ch,
+        out_channels=out_ch,
+        kernel_size=kernel_size,
+        stride=stride,
+        causal=causal,
+        norm=norm,
+        norm_kwargs=norm_kwargs,
+        pad_mode=pad_mode
+    )
+
+def conv_transpose_1d(in_ch: int, out_ch: int, kernel_size: int, stride: int = 1, causal: bool = False, norm: str = 'none', norm_kwargs: Dict[str, Any] = {}, pad_mode: str = 'reflect', trim_right_ratio: float=1.0):
+    return SConvTranspose1d(
+        in_channels=in_ch,
+        out_channels=out_ch,
+        kernel_size=kernel_size,
+        stride=stride,
+        causal=causal,
+        norm=norm,
+        norm_kwargs=norm_kwargs,
+        trim_right_ratio=trim_right_ratio
+    )
+
+
+class GDN1D(nn.Module):
+    """Example of a Generalized Divisive Normalization (GDN) for 1D data."""
+    def __init__(self, num_features, inverse=False):
+        super().__init__()
+        self.inverse = inverse
+        self.eps = 1e-6
+        self.beta = nn.Parameter(torch.ones(num_features))
+        self.gamma = nn.Parameter(torch.ones(num_features))
+
+    def forward(self, x):
+        beta = self.beta.view(1, -1, 1)  # (1, num_features, 1)
+        gamma = self.gamma.view(1, -1, 1)  # (1, num_features, 1)
+        
+        if self.inverse:
+            # Inverse GDN process
+            return x * torch.sqrt(beta + gamma * x**2 + self.eps)
         else:
-            self.skip = nn.Identity()
+            # Normal GDN process
+            return x / torch.sqrt(beta + gamma * x**2 + self.eps)
+
+
+class ResidualBlock1D(nn.Module):
+    """Simple residual block with two 1D convolutions for audio processing.
+
+    Args:
+        in_ch (int): number of input channels
+        out_ch (int): number of output channels
+    """
+
+    def __init__(self, in_ch: int, out_ch: int):
+        super().__init__()
+        self.conv1 = conv1d(in_ch, out_ch, kernel_size=3)   # padding=1
+        self.leaky_relu = nn.LeakyReLU(inplace=True)
+        self.conv2 = conv1d(out_ch, out_ch, kernel_size=3)  # , padding=1
+        if in_ch != out_ch:
+            self.skip = conv1d(in_ch, out_ch, kernel_size=1)
+        else:
+            self.skip = None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         identity = x
+
+        # First convolution
         out = self.conv1(x)
-        out = self.norm1(out)
-        out = self.act(out)
+        out = self.leaky_relu(out)
+
+        # Second convolution
         out = self.conv2(out)
-        out = self.norm2(out)
+        out = self.leaky_relu(out)
+
+        # Skip connection
         if self.skip is not None:
-            identity = self.skip(x)   
+            identity = self.skip(x)
+
+        # Residual connection
+        out = out + identity
+        return out
+
+# ResidualBlockWithStride1D(N, 2*N, stride=strides[0])
+class ResidualBlockWithStride1D(nn.Module):
+    """Residual block with a stride on the first convolution.
+
+    Args:
+        in_ch (int): number of input channels
+        out_ch (int): number of output channels
+        stride (int): stride value (default: 2)
+    """
+    def __init__(self, in_ch: int, out_ch: int, stride: int, kernel_size: int, norm_kwargs: Dict[str, Any] = {}, pad_mode: str = 'reflect'):
+        super().__init__()
+        self.conv1 = SConv1d(
+                    in_ch,
+                    out_ch,
+                    kernel_size=kernel_size,
+                    norm=norm,
+                    norm_kwargs=norm_kwargs,
+                    causal=causal,
+                    pad_mode=pad_mode)
+        # self.conv1 = conv1d(in_ch, out_ch, stride=stride, kernel_size=3)
+        self.leaky_relu = nn.LeakyReLU(inplace=True)
+        self.conv2 = conv1d(out_ch, out_ch, kernel_size=3)
+        self.gdn = GDN1D(out_ch)
+        if stride != 1 or in_ch != out_ch:
+            self.skip = conv1d(in_ch, out_ch, stride=stride, kernel_size=1)
+        else:
+            self.skip = None
+
+    def forward(self, x: Tensor) -> Tensor:
+        identity = x
+        out = self.conv1(x)
+        out = self.leaky_relu(out)
+        out = self.conv2(out)
+        out = self.gdn(out)
+
+        if self.skip is not None:
+            identity = self.skip(x)
+
         out += identity
         return out
 
 class ResidualBlockUpsample1D(nn.Module):
-    def __init__(self, in_ch: int, out_ch: int, stride: int, kernel_size: int, norm: str = 'weight_norm', pad_mode: str = 'reflect'):
+    """Residual block with sub-pixel upsampling on the last convolution."""
+    def __init__(self, in_ch: int, out_ch: int, stride: int, kernel_size: int):
         super(ResidualBlockUpsample1D, self).__init__()
-        self.stride=stride
-        self.in_channels=in_ch
-        self.out_channels=out_ch
-        self.conv1 = nm.SConvTranspose1d(in_ch, out_ch, stride=stride, kernel_size=kernel_size,norm=norm)  # padding=padding
-        self.act = nn.ELU(inplace=True)
-        self.conv2 = nm.SConvTranspose1d(out_ch, out_ch, kernel_size=1, norm=norm)
-        self.norm1 = nm.get_norm_module(self.conv1, causal=False, norm=norm)
-        self.norm2 = nm.get_norm_module(self.conv2, causal=False, norm=norm)
-        if self.in_channels != self.out_channels or self.stride != 1:
-            self.skip = nm.SConvTranspose1d(in_ch, out_ch, stride=stride, kernel_size=5,norm=norm)
+        self.conv1 = conv_transpose_1d(in_ch, out_ch, stride=stride, kernel_size=kernel_size)  # padding=padding
+        self.leaky_relu = nn.LeakyReLU(inplace=True)
+        self.conv2 = conv1d(out_ch, out_ch, kernel_size=kernel_size)  # Assuming conv1d_kernel3 is defined elsewhere
+        self.gdn = GDN1D(out_ch, inverse=True)  # Assuming GDN1D is defined elsewhere
+        if stride != 1 or in_ch != out_ch:
+            self.skip = conv_transpose_1d(in_ch, out_ch, kernel_size=kernel_size, stride=stride)    # , padding=padding
         else:
-            self.skip = nn.Identity()
-            
+            self.skip = None
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         identity = x
+        # print(f"one{x.shape}")
         out = self.conv1(x)
-        out = self.norm1(out)
-        out = self.act(out)
+        # print(f"after conv1{out.shape}")
+        out = self.leaky_relu(out)
+        # print(f"after leaky_relu{out.shape}")
         out = self.conv2(out)
-        out = self.norm2(out)
+        # print(f"after conv2{out.shape}")
+        out = self.gdn(out)
+        # print(f"after gdn{out.shape}")
+        # print(out.shape)
         if self.skip is not None:
             identity = self.skip(x)
+        # print(f"identity shape:{identity.shape}")
         out += identity
         return out
+
+# 没用到，不过记得之前有报错
+def conv(in_channels, out_channels, kernel_size=5, stride=2):
+    return conv1d(
+        in_channels,
+        out_channels,
+        kernel_size=kernel_size,
+        stride=stride,
+        padding=(kernel_size - 1) // 2,  # 对于奇数kernel_size，这将确保输出长度与输入长度相同
+    )
 
 class WMSA(nn.Module):
     # Self-attention module in Swin Transformer
@@ -185,9 +296,13 @@ class Block(nn.Module):
         )
 
     def forward(self, x):
+        # print('first into the block')
+        # print(x.shape)
         x = x.transpose(1,2)
         x = x + self.drop_path(self.msa(self.ln1(x)))
         x = x + self.drop_path(self.mlp(self.ln2(x)))
+        # print("after the trans_block")
+        # print(x.shape)
         x = x.transpose(1,2)
         return x
 
@@ -208,7 +323,7 @@ class ConvTransBlock(nn.Module):
         self.conv1_1 = nn.Conv1d(self.conv_dim+self.trans_dim, self.conv_dim+self.trans_dim, kernel_size=1, stride=1, bias=True)
         self.conv1_2 = nn.Conv1d(self.conv_dim+self.trans_dim, self.conv_dim+self.trans_dim, kernel_size=1, stride=1, bias=True)
 
-        self.conv_block = SEANetResnetBlock(self.conv_dim)
+        self.conv_block = ResidualBlock1D(self.conv_dim, self.conv_dim)
 
     def forward(self, x):
         conv_x, trans_x = torch.split(self.conv1_1(x), (self.conv_dim, self.trans_dim), dim=1)
@@ -232,11 +347,11 @@ class stcm(CompressionModel):
         
         self.m_down1 = nn.Sequential(*[ConvTransBlock(dim//2, dim//2, self.head_dim[0], self.window_size, self.window, dpr[i+begin], 'W' if not i%2 else 'SW') 
                       for i in range(config[0])] + \
-                      [ResidualBlockWithStride1D(N, 2*N, stride=strides[0], kernel_size=3)])
+                      [ResidualBlockWithStride1D(N, 2*N, stride=strides[0])])
         
         self.m_down2 = nn.Sequential(*[ConvTransBlock(dim*2, dim*2, self.head_dim[1], self.window_size, self.window, dpr[i+begin], 'W' if not i%2 else 'SW') 
                       for i in range(config[1])] + \
-                      [ResidualBlockWithStride1D(4*N, 8*N, stride=strides[1], kernel_size=5)])
+                      [ResidualBlockWithStride1D(4*N, 8*N, stride=strides[1])])
 
         self.m_up1 = nn.Sequential(*[ConvTransBlock(dim*4, dim*4, self.head_dim[2], self.window_size, self.window, dpr[i+begin], 'W' if not i%2 else 'SW') 
                       for i in range(config[2])] + \
@@ -254,7 +369,7 @@ class stcm(CompressionModel):
         # y = self.encoderblock(x)
         y1 = self.m_down1(x)
         return y1
-
+        
     def encoder5(self, x):
         y2 = self.m_down2(x)
         return y2
@@ -263,7 +378,7 @@ class stcm(CompressionModel):
         # y = self.decoderblcok(x)
         y1 = self.m_up1(x)
         return y1
-
+    
     def decoder2(self, x):
         y2 = self.m_up2(x)
         return y2
