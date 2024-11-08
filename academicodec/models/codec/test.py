@@ -167,7 +167,7 @@ def remove_codec_weight_norm(model):
         elif isinstance(encoder._modules[key], SConv1d):
             remove_weight_norm(encoder._modules[key].conv.conv)
 
-    encoder = model.stcm.encoder2
+    encoder = model.stcm.m_down1
     for key in encoder._modules:
         if isinstance(encoder._modules[key], SEANetResnetBlock):
             remove_weight_norm(encoder._modules[key].shortcut.conv.conv)
@@ -189,7 +189,7 @@ def remove_codec_weight_norm(model):
         elif isinstance(encoder._modules[key], SConv1d):
             remove_weight_norm(encoder._modules[key].conv.conv)
 
-    encoder = model.stcm.encoder5
+    encoder = model.stcm.m_down2
     for key in encoder._modules:
         if isinstance(encoder._modules[key], SEANetResnetBlock):
             remove_weight_norm(encoder._modules[key].shortcut.conv.conv)
@@ -224,7 +224,7 @@ def remove_codec_weight_norm(model):
         elif isinstance(decoder._modules[key], SConv1d):
             remove_weight_norm(decoder._modules[key].conv.conv)
 
-    encoder = model.stcm.decoder5
+    encoder = model.stcm.m_up1
     for key in encoder._modules:
         if isinstance(encoder._modules[key], SEANetResnetBlock):
             remove_weight_norm(encoder._modules[key].shortcut.conv.conv)
@@ -248,7 +248,7 @@ def remove_codec_weight_norm(model):
         elif isinstance(decoder._modules[key], SConv1d):
             remove_weight_norm(decoder._modules[key].conv.conv)
 
-    encoder = model.stcm.decoder2
+    encoder = model.stcm.m_up2
     for key in encoder._modules:
         if isinstance(encoder._modules[key], SEANetResnetBlock):
             remove_weight_norm(encoder._modules[key].shortcut.conv.conv)
