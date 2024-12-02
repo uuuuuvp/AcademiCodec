@@ -4,8 +4,8 @@ source /opt/miniconda3/bin/activate /data0/youyubo/.conda/envs/Encodec
 # python3 ${BIN_DIR}/test.py \
 python3 /data0/youyubo/y/AcademiCodec/academicodec/models/codec/test.py \
        --input=/data0/youyubo/y/data/test-clean-16k \
-       --output=/data0/youyubo/y/result/test-clean-1200-41-tcm \
-       --resume_path=/data0/youyubo/y/AcademiCodec/ckpt/2024-10-23-20-57/best_41.pth \
+       --output=/data0/youyubo/y/result/codec-1200-94-11-9 \
+       --resume_path=/data0/youyubo/y/AcademiCodec/ckpt/2024-11-06-19-58/best_94.pth \
        --sr=16000 \
        --ratios 8 5 4 2 \
        --target_bandwidths 1.2 2.4 \

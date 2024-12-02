@@ -15,7 +15,7 @@ stop_stage=3
 # gen_dir='the genereated samples'
 
 ref_dir='/data0/youyubo/y/data/test-clean-16k'
-gen_dir='/data0/youyubo/y/result/test-clean-1200-41-tcm'
+gen_dir='/data0/youyubo/y/result/hf-encodec-1'
 
 echo ${ref_dir}
 echo ${gen_dir}
