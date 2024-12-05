@@ -26,6 +26,10 @@ stft = STFT(
 ).to(device)
 
 print(audio.shape)
+audio=audio.unsqueeze(1)
+print(audio.shape)
+audio=audio.repeat(10,1,1)
+print(audio.shape)
 magnitude, phase = stft.transform(audio)
 print(magnitude.shape)
 print(phase.shape)

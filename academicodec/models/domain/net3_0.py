@@ -40,7 +40,6 @@ class SoundStream(nn.Module):
 
     def forward(self, x):
         # e = self.encoder(x)
-        print(x.shape)
         e = self.encoder.sedown0(x)# e = self.en0(x)
         # print(f"首层大卷积: {e.shape}")
         e = self.stcm.encoder2(e)# e = self.en2(e)

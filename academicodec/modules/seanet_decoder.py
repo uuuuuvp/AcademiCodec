@@ -205,7 +205,7 @@ class SEANetDecoder2d(nn.Module):
 
         up1 : tp.List[nn.Module] = [get_activation(activation, **{**activation_params, "channels": mults[0] * n_filters}),
             SConvTranspose2d(mults[1] * n_filters, mults[1] * n_filters // 2,
-                                 kernel_size=(ratios[0][0] * 2, ratios[0][1] * 2),
+                                 kernel_size=(ratios[0][0] * 2+1, ratios[0][1] * 2),
                                  stride=(ratios[0][0], ratios[0][1]),
                                  norm=norm, norm_kwargs=norm_params,
                                  causal=causal, trim_right_ratio=trim_right_ratio,
@@ -227,6 +227,11 @@ class SEANetDecoder2d(nn.Module):
             SConv2d(n_filters, channels, last_kernel_size, norm=norm, norm_kwargs=norm_params,
                     causal=causal, pad_mode=pad_mode)]
         self.up1 = nn.Sequential(*up1)
+        
+        self.avg_pool = nn.Sequential(
+            nn.AvgPool2d(kernel_size=(257, 1)),  # 对 257 维度平均池化
+            nn.Conv2d(1, 1, kernel_size=1)       # 使用 1x1 卷积对其进行单通道扩展
+        )
         
         up0 : tp.List[nn.Module] = [get_activation(activation, **{**activation_params, "channels": n_filters}),
             SConv2d(n_filters, channels, last_kernel_size, norm=norm, norm_kwargs=norm_params,
@@ -263,7 +268,11 @@ class SEANetDecoder2d(nn.Module):
         return self.up2(x)
     
     def seup1(self, x):
-        return self.up1(x)
+        r = self.up1(x)
+        pooled = self.avg_pool(r)
+        pooled = pooled.expand(-1,-1,-1,x.size(3))
+        r = torch.cat([r, pooled], dim=2)  # 在高度维度（第 3 维）合并
+        return r
     
     def seup0(self, x):
         return self.up0(x)

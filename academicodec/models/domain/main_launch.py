@@ -5,13 +5,13 @@ import time
 
 import torch
 import torch.distributed as dist
-from academicodec.models.codec.dataset import NSynthDataset
-from academicodec.models.codec.loss import criterion_d
-from academicodec.models.codec.loss import criterion_g
-from academicodec.models.codec.loss import loss_dis
-from academicodec.models.codec.loss import loss_g
-from academicodec.models.codec.msstftd import MultiScaleSTFTDiscriminator
-from academicodec.models.codec.net3 import SoundStream
+from academicodec.models.domain.dataset import NSynthDataset
+from academicodec.models.domain.loss import criterion_d
+from academicodec.models.domain.loss import criterion_g
+from academicodec.models.domain.loss import loss_dis
+from academicodec.models.domain.loss import loss_g
+from academicodec.models.domain.msstftd import MultiScaleSTFTDiscriminator
+from academicodec.models.domain.net3 import SoundStream
 from academicodec.models.soundstream.models import MultiPeriodDiscriminator
 from academicodec.models.soundstream.models import MultiScaleDiscriminator
 from academicodec.utils import Logger
@@ -120,7 +120,8 @@ def get_args():
         type=int,
         nargs='+',
         # probs(ratios) = hop_size
-        default=[8, 5, 4, 2],
+        # default=[8, 5, 4, 2],
+        default=[(4, 1), (4, 1), (4, 2), (4, 1)],
         help='ratios of SoundStream, shoud be set for different hop_size (32d, 320, 240d, ...)'
     )
     parser.add_argument(
@@ -169,7 +170,7 @@ def main_worker(local_rank, args):
     logger = Logger(args)
     soundstream = SoundStream(
         n_filters=32, 
-        D=512, 
+        D=128,  # 512 
         ratios=args.ratios,
         sample_rate=args.sr,
         target_bandwidths=args.target_bandwidths)

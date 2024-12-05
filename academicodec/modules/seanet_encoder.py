@@ -75,7 +75,7 @@ class ReshapeModule(nn.Module):
         self.dim = dim
 
     def forward(self, x):
-        print(f"before reshape{x.shape}")
+        # print(f"before reshape{x.shape}")
         return torch.squeeze(x, dim=self.dim)
 
 
