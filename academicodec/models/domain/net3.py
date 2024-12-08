@@ -11,7 +11,7 @@ from academicodec.quantization import ResidualVectorQuantizer
 # from academicodec.modules.tcm import TCM
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-# codec model
+# domain model
 class SoundStream(nn.Module):
     def __init__(self,
                  n_filters,
@@ -36,75 +36,61 @@ class SoundStream(nn.Module):
             n_filters=n_filters, ratios=ratios)
         # self.tcm = TCM()
         self.stft = STFT(filter_length=256,hop_length=128, win_length=256,window='hann')
+        for param in self.stft.parameters():
+            param.requires_grad = False
         
     def get_last_layer(self):
         return self.decoder.layers[-1].weight
     
     def forward(self, x):
-        # x = x.unsqueeze(0)
-        # print(x.shape)
-        # x = x.unsqueeze(1)
-        # print(x.shape)
         mag, pha = self.stft.transform(x)
-        # print(mag.shape);print(pha.shape)
-        # print('mag and pha shape as above')
         e = torch.concat((mag,pha),dim=1).unsqueeze(1)
         # print(f"进入encode之前{e.shape}")
-        # e = self.encoder.forward(e)
-        # e = TCM.down1(e)
-        # e = self.encoder.sedown0(e)# e = self.en0(x)
-        # print(f"down0:{e.shape}")
-        # print(e.shape)
-        # e = e.permute(0,2,1,3)
-        e = self.encoder.sedown1(e)# e = self.en0(x)
+        e = self.encoder.sedown1(e)
         # print(f"down1:{e.shape}")
-        e = self.encoder.sedown2(e)# e = self.en0(x)
+        e = self.encoder.sedown2(e)
         # print(f"down2:{e.shape}")
-        e = self.encoder.sedown3(e)# e = self.en0(x)
+        e = self.encoder.sedown3(e)
         # print(f"down3:{e.shape}")
-        e = self.encoder.sedown4(e)# e = self.en0(x)
+        e = self.encoder.sedown4(e)
         # print(f"down4:{e.shape}")
-        e = self.encoder.sedown5(e)# e = self.en0(x)
-        # print(f"down5:{e.shape}")
-        
-        # assert 0
-        # print(e.shape)
+        e = self.encoder.sedown5(e)
+        # print(f"down5:{e.shape}")        
         max_idx = len(self.target_bandwidths) - 1
         bw = self.target_bandwidths[random.randint(0, max_idx)]
         quantized, codes, bandwidth, commit_loss = self.quantizer(
             e, self.frame_rate, bw)
-        # o = quantized
-        # print(o.shape)
         # print(quantized.shape)
-        o = self.decoder.seup5(quantized)# e = self.en0(x)
+        o = self.decoder.seup5(quantized)
         # print(f"up5:{o.shape}")
-        o = self.decoder.seup4(o)# e = self.en0(x)
+        o = self.decoder.seup4(o)
         # print(f"up4:{o.shape}")
-        o = self.decoder.seup3(o)# e = self.en0(x)
+        o = self.decoder.seup3(o)
         # print(f"up3:{o.shape}")
-        o = self.decoder.seup2(o)# e = self.en0(x)
+        o = self.decoder.seup2(o)
         # print(f"up2:{o.shape}")
-        o = self.decoder.seup1(o)# e = self.en0(x)
+        o = self.decoder.seup1(o)
         # print(f"up1:{o.shape}")
         o = o.squeeze(1)
-        # mag, pha = o.split()
         mag, pha = torch.split(o, [129, 129], dim=1)
         o = self.stft.inverse(mag, pha)
         o = o.unsqueeze(1)
-        # print(o.shape)
         return o, commit_loss, None
 
     def encode(self, x, target_bw=None, st=None):
-        # e = self.encoder(x)
-        e = self.encoder.sedown0(x)# e = self.en0(x)
-        # print(f"首层大卷积: {e.shape}")
-        e = self.stcm.encoder2(e)# e = self.en2(e)
-        # print(f"tcm2维卷积: {e.shape}")
-        e = self.encoder.sedown2(e)# e = self.en4(e)
-        # print(f"seanet卷积: {e.shape}")
-        e = self.stcm.encoder5(e)# e = self.en5(e)
-        # print(f"tcm5大卷积: {e.shape}")
-        e = self.encoder.sedown4(e)# e = self.en8(e)
+        mag, pha = self.stft.transform(x)
+        e = torch.concat((mag,pha),dim=1).unsqueeze(1)
+        # print(f"进入encode之前{e.shape}")
+        e = self.encoder.sedown1(e)
+        # print(f"down1:{e.shape}")
+        e = self.encoder.sedown2(e)
+        # print(f"down2:{e.shape}")
+        e = self.encoder.sedown3(e)
+        # print(f"down3:{e.shape}")
+        e = self.encoder.sedown4(e)
+        # print(f"down4:{e.shape}")
+        e = self.encoder.sedown5(e)
+        # print(f"down5:{e.shape}")    
         if target_bw is None:
             bw = self.target_bandwidths[-1]
         else:
@@ -116,58 +102,18 @@ class SoundStream(nn.Module):
 
     def decode(self, codes):
         quantized = self.quantizer.decode(codes)
-        o = self.decoder.seup5(quantized)# e = self.en0(x)
+        o = self.decoder.seup5(quantized)
         # print(f"up5:{o.shape}")
-        o = self.decoder.seup4(o)# e = self.en0(x)
+        o = self.decoder.seup4(o)
         # print(f"up4:{o.shape}")
-        o = self.decoder.seup3(o)# e = self.en0(x)
+        o = self.decoder.seup3(o)
         # print(f"up3:{o.shape}")
-        o = self.decoder.seup2(o)# e = self.en0(x)
+        o = self.decoder.seup2(o)
         # print(f"up2:{o.shape}")
-        o = self.decoder.seup1(o)# e = self.en0(x)
+        o = self.decoder.seup1(o)
         # print(f"up1:{o.shape}")
         o = o.squeeze(1)
-        # mag, pha = o.split()
         mag, pha = torch.split(o, [129, 129], dim=1)
         o = self.stft.inverse(mag, pha)
+        o = o.unsqueeze(1)
         return o
-
-    def codec(self, x):
-        pass
-
-"""
-    def forward(self, x):
-        # e = self.encoder(x)
-        print(x.shape)
-        e = self.encoder.sedown0(x)# e = self.en0(x)
-        # print(f"首层大卷积: {e.shape}")
-        e = self.stcm.encoder2(e)# e = self.en2(e)
-        # print(f"tcm2维卷积: {e.shape}")
-        e = self.encoder.sedown2(e)# e = self.en4(e)
-        # print(f"seanet卷积: {e.shape}")
-        e = self.stcm.encoder5(e)# e = self.en5(e)
-        # print(f"tcm5大卷积: {e.shape}")
-        e = self.encoder.sedown4(e)# e = self.en8(e)
-        # print(f"seanet卷积: {e.shape}") 
-        
-        max_idx = len(self.target_bandwidths) - 1
-        bw = self.target_bandwidths[random.randint(0, max_idx)]
-        quantized, codes, bandwidth, commit_loss = self.quantizer(
-            e, self.frame_rate, bw)
-        # print('\n')
-        # print(f"量化结果{quantized.shape}")
-        # o = self.decoder(quantized)
-        o = self.decoder.seup4(quantized)# o = self.de8(quantized)
-        # print(f"反卷积8步{o.shape}")
-        o = self.stcm.decoder5(o)# o = self.de5(o)
-        # print("tcm成功")
-        # print(f"tcm5:{o.shape}")
-        o = self.decoder.seup2(o)# o = self.de4(o)
-        # print(f"seanet4:{o.shape}")
-        o = self.stcm.decoder2(o)# o = self.de2(o)
-        # print(f"tcm2:{o.shape}")
-        o = self.decoder.seup0(o)# o = self.de0(o)
-        # print(f"seanet0:{o.shape}")
-        # print(x-o)
-        return o, commit_loss, None
-"""

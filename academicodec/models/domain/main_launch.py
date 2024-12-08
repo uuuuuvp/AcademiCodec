@@ -11,6 +11,7 @@ from academicodec.models.domain.loss import criterion_g
 from academicodec.models.domain.loss import loss_dis
 from academicodec.models.domain.loss import loss_g
 from academicodec.models.domain.msstftd import MultiScaleSTFTDiscriminator
+from academicodec.modules.torch_stft import STFT
 from academicodec.models.domain.net3 import SoundStream
 from academicodec.models.soundstream.models import MultiPeriodDiscriminator
 from academicodec.models.soundstream.models import MultiScaleDiscriminator
@@ -20,20 +21,57 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from tqdm import tqdm
 
 
-def getModelSize(model):
+# def getModelSize(model):
+#     param_size = 0
+#     param_sum = 0
+#     for param in model.parameters():
+#         param_size += param.nelement() * param.element_size()
+#         param_sum += param.nelement()
+#     buffer_size = 0
+#     buffer_sum = 0
+#     for buffer in model.buffers():
+#         buffer_size += buffer.nelement() * buffer.element_size()
+#         buffer_sum += buffer.nelement()
+#     all_size = (param_size + buffer_size) / 1024 / 1024
+#     print('模型总大小为：{:.3f}MB'.format(all_size))
+#     return (param_size, param_sum, buffer_size, buffer_sum, all_size)
+def getModelSize(model, exclude_modules=None):
+    """
+    计算模型大小，可以排除特定模块。
+    Args:
+        model (torch.nn.Module): 需要计算大小的模型。
+        exclude_modules (list): 要排除的模块列表，默认为 None。
+    
+    Returns:
+        tuple: (param_size, param_sum, buffer_size, buffer_sum, all_size)
+    """
+    if exclude_modules is None:
+        exclude_modules = [STFT, MultiScaleDiscriminator]
+
     param_size = 0
     param_sum = 0
-    for param in model.parameters():
-        param_size += param.nelement() * param.element_size()
-        param_sum += param.nelement()
     buffer_size = 0
     buffer_sum = 0
-    for buffer in model.buffers():
+
+    # 遍历参数，排除指定模块
+    for name, param in model.named_parameters():
+        # 检查参数是否属于排除的模块
+        if any(isinstance(getattr(model, name.split('.')[0]), mod) for mod in exclude_modules):
+            continue
+        param_size += param.nelement() * param.element_size()
+        param_sum += param.nelement()
+
+    # 遍历缓冲区，排除指定模块
+    for name, buffer in model.named_buffers():
+        if any(isinstance(getattr(model, name.split('.')[0]), mod) for mod in exclude_modules):
+            continue
         buffer_size += buffer.nelement() * buffer.element_size()
         buffer_sum += buffer.nelement()
+
     all_size = (param_size + buffer_size) / 1024 / 1024
-    print('模型总大小为：{:.3f}MB'.format(all_size))
+    print('模型总大小（排除指定模块）为：{:.3f}MB'.format(all_size))
     return (param_size, param_sum, buffer_size, buffer_sum, all_size)
+
 
 
 def get_args():
@@ -237,8 +275,10 @@ def main_worker(local_rank, args):
         num_workers=8,
         sampler=valid_sampler)
     logger.log_info("Build optimizers and lr-schedulers")
+    # optimizer_g = torch.optim.AdamW(
+    #     soundstream.parameters(), lr=3e-4, betas=(0.5, 0.9))
     optimizer_g = torch.optim.AdamW(
-        soundstream.parameters(), lr=3e-4, betas=(0.5, 0.9))
+        filter(lambda p: p.requires_grad, soundstream.parameters()), lr=3e-4, betas=(0.5, 0.9))
     lr_scheduler_g = torch.optim.lr_scheduler.ExponentialLR(
         optimizer_g, gamma=0.999)
     optimizer_d = torch.optim.AdamW(
